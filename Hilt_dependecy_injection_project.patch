@@ -1,0 +1,303 @@
+Subject: [PATCH] Hilt dependecy injection project
+---
+Index: gradle/libs.versions.toml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
+--- a/gradle/libs.versions.toml	(revision 00e1544fd986272cf945d3401a6abd52027e94b7)
++++ b/gradle/libs.versions.toml	(date 1714662573628)
+@@ -61,3 +61,5 @@
+ androidApplication = { id = "com.android.application", version.ref = "agp" }
+ jetbrainsKotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+ hiltInject = { id = "com.google.dagger.hilt.android", version.ref = "hilt"}
++org-jetbrains-kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
++
+Index: app/build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts	(revision 00e1544fd986272cf945d3401a6abd52027e94b7)
++++ b/app/build.gradle.kts	(date 1714662623036)
+@@ -1,6 +1,7 @@
+ plugins {
+     alias(libs.plugins.androidApplication)
+     alias(libs.plugins.jetbrainsKotlinAndroid)
++    alias(libs.plugins.org.jetbrains.kotlin.kapt)
+     alias(libs.plugins.hiltInject)
+ }
+ 
+@@ -109,5 +110,5 @@
+ 
+     //Hilt
+     implementation (libs.hilt.android)
+-    annotationProcessor (libs.hilt.compiler)
++    kapt (libs.hilt.compiler)
+ }
+\ No newline at end of file
+Index: build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/build.gradle.kts b/build.gradle.kts
+--- a/build.gradle.kts	(revision 00e1544fd986272cf945d3401a6abd52027e94b7)
++++ b/build.gradle.kts	(date 1714662603700)
+@@ -2,5 +2,6 @@
+ plugins {
+     alias(libs.plugins.androidApplication) apply false
+     alias(libs.plugins.jetbrainsKotlinAndroid) apply false
++    alias(libs.plugins.org.jetbrains.kotlin.kapt) apply false
+     alias(libs.plugins.hiltInject) apply false
+ }
+\ No newline at end of file
+Index: app/src/main/java/com/yaman/belediyehizmet/news/NewsViewModel.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/yaman/belediyehizmet/news/NewsViewModel.kt b/app/src/main/java/com/yaman/belediyehizmet/news/NewsViewModel.kt
+new file mode 100644
+--- /dev/null	(date 1714643208713)
++++ b/app/src/main/java/com/yaman/belediyehizmet/news/NewsViewModel.kt	(date 1714643208713)
+@@ -0,0 +1,58 @@
++import android.util.Log
++import androidx.compose.runtime.MutableState
++import androidx.compose.runtime.State
++import androidx.compose.runtime.mutableStateOf
++import androidx.lifecycle.ViewModel
++import androidx.lifecycle.viewModelScope
++import com.yaman.belediyehizmet.news.NewsItem
++import dagger.hilt.android.lifecycle.HiltViewModel
++import kotlinx.coroutines.launch
++import org.jsoup.Jsoup
++import javax.inject.Inject
++
++@HiltViewModel
++class NewsViewModel @Inject constructor() : ViewModel() {
++
++    private val _newsResponse: MutableState<NewsState> = mutableStateOf(NewsState())
++    val newsResponse: State<NewsState> = _newsResponse
++    private val isLoading: MutableState<Boolean> = mutableStateOf(false)
++
++
++    init {
++        news()
++    }
++    fun news() {
++        isLoading.value = true // İstek başladığında isLoading'i true olarak ayarla
++        viewModelScope.launch {
++            try {
++                val newsList = mutableListOf<NewsItem>()
++                val doc = Jsoup.connect("https://www.batman.bel.tr/haber").get()
++                val blogCards = doc.select(".blog-card")
++                for (blogCard in blogCards) {
++                    val title = blogCard.select(".blog-card-content a").text()
++                    val description = blogCard.select(".blog-card-content p").text()
++                    val imageUrl = blogCard.select(".blog-card-image img").attr("src")
++                    val url = blogCard.select(".blog-card-content a").attr("href")
++                    val date = blogCard.select(".blog-card-date a").text()
++                    val newsItem = NewsItem(title, description, url, imageUrl, date)
++                    newsList.add(newsItem)
++                }
++                _newsResponse.value = NewsState(
++                    data = newsList,
++                    isSuccess = true,
++                    isLoading = false
++                )
++                Log.v("newsList:", newsList.toString())
++
++            } catch (e: Exception) {
++                _newsResponse.value = NewsState(isError = e.message ?: "Unknown error", isLoading = false)
++            }
++        }
++    }
++}
++data class NewsState(
++    val data: List<NewsItem> = emptyList(),
++    val isSuccess: Boolean = false,
++    val isLoading: Boolean = false,
++    val isError: String = ""
++)
+\ No newline at end of file
+Index: app/src/main/AndroidManifest.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+--- a/app/src/main/AndroidManifest.xml	(revision 00e1544fd986272cf945d3401a6abd52027e94b7)
++++ b/app/src/main/AndroidManifest.xml	(date 1714638600311)
+@@ -11,6 +11,7 @@
+ 
+ 
+     <application
++        android:name=".MyApp"
+         android:allowBackup="true"
+         android:dataExtractionRules="@xml/data_extraction_rules"
+         android:fullBackupContent="@xml/backup_rules"
+Index: app/src/main/java/com/yaman/belediyehizmet/MyApp.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/yaman/belediyehizmet/MyApp.kt b/app/src/main/java/com/yaman/belediyehizmet/MyApp.kt
+new file mode 100644
+--- /dev/null	(date 1714638600300)
++++ b/app/src/main/java/com/yaman/belediyehizmet/MyApp.kt	(date 1714638600300)
+@@ -0,0 +1,7 @@
++package com.yaman.belediyehizmet
++
++import android.app.Application
++import dagger.hilt.android.HiltAndroidApp
++
++@HiltAndroidApp
++class MyApp : Application()
+\ No newline at end of file
+Index: app/src/main/java/com/yaman/belediyehizmet/MainActivity.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/yaman/belediyehizmet/MainActivity.kt b/app/src/main/java/com/yaman/belediyehizmet/MainActivity.kt
+--- a/app/src/main/java/com/yaman/belediyehizmet/MainActivity.kt	(revision 00e1544fd986272cf945d3401a6abd52027e94b7)
++++ b/app/src/main/java/com/yaman/belediyehizmet/MainActivity.kt	(date 1714638825640)
+@@ -6,11 +6,13 @@
+ import androidx.activity.compose.setContent
+ import com.yaman.belediyehizmet.mainscreen.MainScreen
+ import com.yaman.belediyehizmet.ui.theme.BatmanBelediyeHizmetTheme
++import dagger.hilt.android.AndroidEntryPoint
+ 
+ var loadURdL = "https://webportal.batman.bel.tr/web/guest/2"
+ var loadURL = "https://www.batman.bel.tr/"
+ val TAG = "logChat"
+ 
++@AndroidEntryPoint
+ class MainActivity : ComponentActivity() {
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+Index: app/src/main/java/com/yaman/belediyehizmet/news/NewsScreen.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/yaman/belediyehizmet/news/NewsScreen.kt b/app/src/main/java/com/yaman/belediyehizmet/news/NewsScreen.kt
+--- a/app/src/main/java/com/yaman/belediyehizmet/news/NewsScreen.kt	(revision 00e1544fd986272cf945d3401a6abd52027e94b7)
++++ b/app/src/main/java/com/yaman/belediyehizmet/news/NewsScreen.kt	(date 1714664232103)
+@@ -1,5 +1,6 @@
+ package com.yaman.belediyehizmet.news
+ 
++import NewsViewModel
+ import android.util.Log
+ import androidx.compose.foundation.Image
+ import androidx.compose.foundation.background
+@@ -30,6 +31,7 @@
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
++import androidx.lifecycle.viewmodel.compose.viewModel
+ import androidx.navigation.NavController
+ import coil.compose.rememberAsyncImagePainter
+ import coil.request.ImageRequest
+@@ -39,38 +41,20 @@
+ import org.jsoup.Jsoup
+ 
+ @Composable
+-fun NewsScreen(navController: NavController) {
++fun NewsScreen(
++    navController: NavController,
++    newsViewModel: NewsViewModel = viewModel()
++) {
+ 
+     val isLoading = remember { mutableStateOf(true) }
+     val newsListState = remember { mutableStateOf<List<NewsItem>>(emptyList()) }
+ 
+-
+-    LaunchedEffect(key1 = Unit) {
+-        val newsList = mutableListOf<NewsItem>()
+-        CoroutineScope(Dispatchers.IO).launch {
+-
+-            try {
+-                val doc = Jsoup.connect("https://www.batman.bel.tr/haber").get()
+-                val blogCards = doc.select(".blog-card")
+-                for (blogCard in blogCards) {
+-                    val title = blogCard.select(".blog-card-content a").text()
+-                    val description = blogCard.select(".blog-card-content p").text()
+-                    val imageUrl = blogCard.select(".blog-card-image img").attr("src")
+-                    val url = blogCard.select(".blog-card-content a").attr("href")
+-                    val date = blogCard.select(".blog-card-date a").text()
+-                    val newsItem = NewsItem(title, description, url, imageUrl, date)
+-                    newsList.add(newsItem)
+-                }
+-                newsListState.value = newsList
+-                Log.v("newsList:", newsList.toString())
++    if (newsViewModel.newsResponse.value.isSuccess){
++        Log.d("newsviewmodelsa:",newsViewModel.newsResponse.value.data.toString())
++    }else{
++        Log.d("errornewsviewmodel:","burda")
++    }
+ 
+-            } catch (e: Exception) {
+-                // log exception
+-            } finally {
+-                isLoading.value = false
+-            }
+-        }
+-    }
+ 
+     Column(
+         modifier = Modifier
+@@ -80,7 +64,8 @@
+         if (isLoading.value) {
+             CircularProgressIndicator()
+         } else {
+-            for (newsItem in newsListState.value) {
++
++            for (newsItem in newsViewModel.newsResponse.value.data) {
+                 TrendNewsItemv3(
+                     title = newsItem.title,
+                     description = newsItem.description,
+@@ -95,11 +80,11 @@
+ 
+ @Composable
+ fun TrendNewsItemv3(
+-    title: String,
+-    description: String,
++    title: String ,
++    description: String ,
+     pageDetailUrl: String,
+-    imageUrl: String,
+-    date: String,
++    imageUrl: String ,
++    date: String ,
+ ) {
+ 
+     Card(
+Index: app/src/main/java/com/yaman/belediyehizmet/news/NewsItem.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/yaman/belediyehizmet/news/NewsItem.kt b/app/src/main/java/com/yaman/belediyehizmet/news/NewsItem.kt
+--- a/app/src/main/java/com/yaman/belediyehizmet/news/NewsItem.kt	(revision 00e1544fd986272cf945d3401a6abd52027e94b7)
++++ b/app/src/main/java/com/yaman/belediyehizmet/news/NewsItem.kt	(date 1714639682733)
+@@ -2,11 +2,11 @@
+ 
+ 
+ data class NewsItem(
+-    val title: String,
+-    val description: String,
+-    val pageDetailUrl: String,
+-    val imageUrl: String,
+-    val date: String
++    val title: String = "",
++    val description: String = "",
++    val pageDetailUrl: String = "",
++    val imageUrl: String = "",
++    val date: String =""
+ )
+ 
+ 

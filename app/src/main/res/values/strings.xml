@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">Batman Hizmet</string>
+    <string name="news_header">Güncel Haberler</string>
+    <string name="travel_header">Gezilecek Yerler</string>
+    <string name="restaurant">Restorantlar</string>
+    <string name="profile">Profil</string>
+    <string name="noti">Bildirimler</string>
+    <string name="go_to_map">Go to Map</string>
+    <string name="go_map">Haritaya Git</string>
+    <string name="share_with_email">E-posta ile paylaş</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="email">Email</string>
+    <string name="share">Paylaş</string>
+    <string name="message">Mesaj</string>
+</resources>
